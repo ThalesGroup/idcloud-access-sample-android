@@ -1,0 +1,108 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    
+    id 'kotlin-android'
+    id 'com.google.dagger.hilt.android'
+    id 'kotlin-kapt'
+    id 'kotlin-parcelize'
+    id 'com.google.gms.google-services'
+
+}
+
+tasks.withType(Test) {
+    jvmArgs "-noverify"
+}
+
+// KTlint gradle file is used to run the task for the Kotlin lint inspection
+apply from: "ktlint.gradle"
+
+static def versionCodeDate() {
+    return ((int) (new Date().getTime() / 1000))
+}
+
+android {
+    compileSdk 33
+    defaultConfig {
+        applicationId "com.thalesgroup.gemalto.IdCloudAccessSample"
+        minSdk 23
+        targetSdk 33
+        versionCode versionCodeDate()
+        versionName "1.0.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders = [appAuthRedirectScheme: '']
+    }
+
+
+    
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            debuggable false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
+    buildFeatures {
+        /* View binding is a feature that allows you to more easily write code that interacts with views.
+           Once view binding is enabled in a module, it generates a binding class for each XML layout file present in that module.
+            An instance of a binding class contains direct references to all views that have an ID in the corresponding layout.
+           In most cases, view binding replaces findViewById.*/
+        viewBinding = true
+    }
+    // Starting with AGP 8.0.0-alpha03, you must set the namespace in the module-level build.gradle file,
+    // rather than the manifest file. You can start using the namespace DSL property starting with AGP 7.3.
+    namespace 'com.thalesgroup.gemalto.IdCloudAccessSample'
+
+}
+
+
+
+
+dependencies {
+    
+    implementation 'androidx.core:core-ktx:1.9.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.5.1'
+    testImplementation 'junit:junit:4.13.2'
+    implementation "com.google.dagger:hilt-android:2.44"
+    kapt "com.google.dagger:hilt-compiler:2.44"
+    // Navigation Fragment
+    def nav_version = "2.5.3"
+    implementation "androidx.navigation:navigation-fragment-ktx:$nav_version"
+    implementation "androidx.navigation:navigation-ui-ktx:$nav_version"
+    //Data Store
+    implementation "androidx.datastore:datastore-preferences:1.0.0"
+    // Api for openId App Authenticator
+    implementation 'net.openid:appauth:0.11.1'
+
+    //jna wrapper lib
+    implementation 'net.java.dev.jna:jna:5.5.0@aar'
+
+    //Play Services
+    implementation 'com.google.android.gms:play-services-fido:18.1.0'
+    implementation 'com.google.android.gms:play-services-safetynet:18.0.1'
+
+    //Firebase
+    implementation platform('com.google.firebase:firebase-bom:26.2.0')
+    implementation 'com.google.firebase:firebase-messaging:23.0.8'
+    implementation 'com.google.firebase:firebase-analytics'
+
+    //preference
+    implementation 'androidx.preference:preference-ktx:1.2.0'
+
+    //GSON
+    implementation 'com.google.code.gson:gson:2.9.1'
+}
+
+kapt {
+    correctErrorTypes true
+}

@@ -1,0 +1,24 @@
+configurations {
+    ktlint
+}
+
+dependencies {
+    ktlint "com.pinterest:ktlint:0.44.0"
+}
+// The below task runs Kotlin lint check and outputs Kotlin file errors. --> ./gradlew ktlint
+task ktlint(type: JavaExec, group: "verification") {
+    description = "Check Kotlin code style."
+    mainClass.set("com.pinterest.ktlint.Main")
+    classpath = configurations.ktlint
+    args "src/**/*.kt"
+}
+
+check.dependsOn ktlint
+
+//The below task automatically formats all Kotlin files and fixes some of the lint errors outputted from the above Gradle task -->./gradlew ktlintFormat
+task ktlintFormat(type: JavaExec, group: "formatting") {
+    description = "Fix Kotlin code style deviations."
+    mainClass.set("com.pinterest.ktlint.Main")
+    classpath = configurations.ktlint
+    args "-F", "src/**/*.kt"
+}

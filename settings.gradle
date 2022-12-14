@@ -1,0 +1,21 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+        jcenter()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        jcenter()
+        flatDir { dir "$rootDir/libs/idcloudclient" }
+    }
+}
+rootProject.name = "IDCloudAccess"
+include ':app'
+include ':app:idcloudaccesssample'
+
