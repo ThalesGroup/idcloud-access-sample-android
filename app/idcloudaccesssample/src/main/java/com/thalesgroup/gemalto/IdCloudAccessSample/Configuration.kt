@@ -13,6 +13,7 @@ object Configuration {
     const val TENANT_ID = ""
     const val ATTESTATION_KEY = ""
     val PUBLIC_KEY_MODULUS = null
+
     val PUBLIC_KEY_EXPONENT = null
     // endregion
 

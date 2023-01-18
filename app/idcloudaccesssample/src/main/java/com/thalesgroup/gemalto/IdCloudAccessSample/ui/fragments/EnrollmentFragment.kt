@@ -97,9 +97,7 @@ class EnrollmentFragment : Fragment() {
                             homeScreenFragment?.run {
                                 navigateToAuthenticationFragment()
                                 toast {
-                                    "${getString(R.string.welcome)} ${sharedViewModel.getUserName()} ${
                                     getString(R.string.you_are_signed_in)
-                                    }"
                                 }
                                 setLogs(success)
                             }
