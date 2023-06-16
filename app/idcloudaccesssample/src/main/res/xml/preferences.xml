@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:title="Settings">
 
     <PreferenceCategory android:title="@string/pref_category_version_title">
@@ -11,12 +10,53 @@
             android:key="@string/pref_key_idcloud_risk_version" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/pref_title_configuration_idp_title">
+        <Preference
+            android:title="@string/pref_title_idp_url"
+            android:key="@string/pref_key_idp_url"/>
+        <Preference
+            android:title="@string/pref_title_redirect_url"
+            android:key="@string/pref_key_idp_redirect_url"/>
+        <Preference
+            android:title="@string/pref_title_client_id"
+            android:key="@string/pref_key_client_id"/>
+        <Preference
+            android:title="@string/pref_title_client_secret"
+            android:key="@string/pref_key_client_secret"/>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_title_configuration_fido_title">
+        <Preference
+            android:title="@string/pref_title_ms_url"
+            android:key="@string/pref_key_ms_url"/>
+        <Preference
+            android:title="@string/pref_title_tenant_id"
+            android:key="@string/pref_key_tenant_id"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_title_configuration_risk_title">
+        <Preference
+            android:title="@string/pref_title_nd_url"
+            android:key="@string/pref_key_nd_url"/>
+        <Preference
+            android:title="@string/pref_title_risk_client_id"
+            android:key="@string/pref_key_risk_client_id"/>
+        <Preference
+            android:title="@string/pref_title_risk_url"
+            android:key="@string/pref_key_risk_url"/>
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/pref_category_general_title">
 
         <CheckBoxPreference
             android:title="@string/pref_title_show_logs"
             android:defaultValue="false"
             android:key="@string/pref_key_show_logs" />
+
+        <Preference
+            android:key="@string/pref_key_device_push_token"
+            android:title="@string/pref_title_device_push_token" />
 
         <Preference
             android:key="@string/pref_key_reset"

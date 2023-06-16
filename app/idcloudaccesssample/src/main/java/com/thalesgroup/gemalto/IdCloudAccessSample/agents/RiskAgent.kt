@@ -2,8 +2,9 @@ package com.thalesgroup.gemalto.IdCloudAccessSample.agents
 
 import androidx.fragment.app.Fragment
 import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
-import com.thalesgroup.gemalto.IdCloudAccessSample.Configuration
+import com.google.gson.reflect.TypeToken
 import com.thalesgroup.gemalto.d1.D1Exception
 import com.thalesgroup.gemalto.d1.D1Task
 import com.thalesgroup.gemalto.d1.D1Task.Callback
@@ -17,7 +18,6 @@ import java.net.HttpURLConnection
 import java.net.MalformedURLException
 import java.net.URL
 import java.nio.charset.StandardCharsets
-import javax.inject.Inject
 import javax.net.ssl.SSLHandshakeException
 
 interface OnRiskAnalyzeListener {
@@ -30,9 +30,17 @@ interface OnRiskServerResponse {
     fun onError(errorMessage: String?)
 }
 
-class RiskAgent @Inject constructor(private var riskSDK: D1Task) {
+class RiskAgent constructor(ndUrl: String, ndClientId: String) {
     private var onRiskAnalyzeListener: OnRiskAnalyzeListener? = null
     private var onRiskServerResponse: OnRiskServerResponse? = null
+    private val placementName = "LoginMobile"
+
+    private var riskSDK: D1Task? = null
+
+    init {
+        riskSDK = D1Task.Builder().setRiskURLString(ndUrl)
+            .setRiskClientID(ndClientId).build()
+    }
 
     /**
      * Start the risk analyze
@@ -43,7 +51,7 @@ class RiskAgent @Inject constructor(private var riskSDK: D1Task) {
     ) {
         this.onRiskAnalyzeListener = onRiskAnalyzeListener
 
-        riskSDK.startAnalyze(
+        riskSDK?.startAnalyze(
             params,
             object : Callback<Void> {
                 override fun onSuccess(data: Void?) {
@@ -61,25 +69,46 @@ class RiskAgent @Inject constructor(private var riskSDK: D1Task) {
      * Pause the risk analyze
      */
     fun pauseAnalyze() {
-        riskSDK.pauseAnalyze()
+        riskSDK?.pauseAnalyze()
     }
 
     /**
      * Stop the risk analyze and submit the result to the server
      */
-    fun submitRiskPayload(onRiskServerResponse: OnRiskServerResponse) {
+    fun submitRiskPayload(issuerUrl: String, userName: String, onRiskServerResponse: OnRiskServerResponse) {
         this.onRiskServerResponse = onRiskServerResponse
 
-        riskSDK.stopAnalyze(object : Callback<ByteArray?> {
+        riskSDK?.stopAnalyze(object : Callback<ByteArray?> {
             override fun onSuccess(data: ByteArray?) {
                 // Stop Analyze :: result -> success
                 val payload = data?.let { String(it, StandardCharsets.UTF_8) }
                 // The payload is a string in JSON format which contains the data for risk assessment on the SDK backend.
+
+                // region Temporary modification to submit the risk data
+
+                // This is a temporary modification to the output from the IdCloud Risk SDK.
+                // At present, the output from the SDK is out-of-sync with what is expected
+                // by the IdCloud Risk servers.
+                // To remove timestamp and rename the 'nds' -> 'environmentData'
+                val jsonPayload: JsonObject = Gson().fromJson(payload, JsonObject::class.java)
+                val ndsJson: JsonElement = jsonPayload.get("nds")
+
+                val payloadMap: MutableMap<String, Any> = Gson().fromJson(ndsJson, object : TypeToken<Map<String, Any>>() {}.type)
+                payloadMap.remove("timestamp")
+                val sessionId: String = payloadMap["sessionId"] as String
+
+                val accountInfo: MutableMap<String, Any> = HashMap()
+                accountInfo["internalAccountId"] = userName
+                accountInfo["userName"] = userName
+                accountInfo["emailAddress"] = userName
+
+                val riskPayload: Any =
+                    mapOf("accountInfo" to accountInfo, "environmentData" to payloadMap)
+
+                //endregion
+
                 try {
-                    if (payload != null) {
-                        // Send a payload to the backend server
-                        sendPayloadToAppBackend(payload, onRiskServerResponse)
-                    }
+                    sendPayloadToAppBackend(issuerUrl, Gson().toJson(riskPayload), sessionId, onRiskServerResponse)
                 } catch (error: IOException) {
                     // Send a payload to the backend server error
                     onRiskServerResponse.onError(error.message)
@@ -93,8 +122,7 @@ class RiskAgent @Inject constructor(private var riskSDK: D1Task) {
         })
     }
 
-    private fun sendPayloadToAppBackend(payload: String, onRiskServerResponse: OnRiskServerResponse) {
-        val issuerUrl: String = Configuration.RISK_URL + "/riskstorage"
+    private fun sendPayloadToAppBackend(issuerUrl: String, payload: String, sessionID: String, onRiskServerResponse: OnRiskServerResponse) {
 
         val riskJson: JsonObject = Gson().fromJson(payload, JsonObject::class.java)
         val request: ByteArray = riskJson.toString().toByteArray()
@@ -103,10 +131,9 @@ class RiskAgent @Inject constructor(private var riskSDK: D1Task) {
         var urlConnection: HttpURLConnection? = null
         var inputStream: InputStream? = null
         val builder = StringBuilder()
-        var responseResult: String
 
         try {
-            url = URL(issuerUrl)
+            url = URL("$issuerUrl/push")
             urlConnection = url.openConnection() as HttpURLConnection
             urlConnection.setFixedLengthStreamingMode(request.size)
             urlConnection.requestMethod = "POST"
@@ -123,14 +150,8 @@ class RiskAgent @Inject constructor(private var riskSDK: D1Task) {
                     builder.append(line)
                 }
                 if (builder.toString().isNotEmpty()) {
-                    responseResult = builder.toString()
-                    val response = Gson().fromJson(
-                        responseResult,
-                        ResponsePayload::class.java
-                    )
-                    val riskId = response.payloadId
-                    riskId!!.replace("\"".toRegex(), "")
-                    onRiskServerResponse.onSuccess(riskId)
+                    val acrRiskId = "$placementName:$sessionID"
+                    onRiskServerResponse.onSuccess(acrRiskId)
                 }
             } else {
                 onRiskServerResponse.onError("Invalid http status code")
@@ -143,9 +164,5 @@ class RiskAgent @Inject constructor(private var riskSDK: D1Task) {
             urlConnection?.disconnect()
             inputStream?.close()
         }
-    }
-
-    internal class ResponsePayload {
-        var payloadId: String? = null
     }
 }

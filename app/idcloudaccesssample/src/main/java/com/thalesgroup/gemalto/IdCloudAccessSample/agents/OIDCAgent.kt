@@ -2,7 +2,6 @@ package com.thalesgroup.gemalto.d1.icampoc
 
 import android.content.Context
 import android.net.Uri
-import com.thalesgroup.gemalto.IdCloudAccessSample.Configuration
 import com.thalesgroup.gemalto.IdCloudAccessSample.agents.IDCAException
 import net.openid.appauth.AuthState
 import net.openid.appauth.AuthorizationException
@@ -11,7 +10,7 @@ import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.AuthorizationServiceConfiguration.RetrieveConfigurationCallback
-import net.openid.appauth.ClientAuthentication
+import net.openid.appauth.ClientSecretPost
 import net.openid.appauth.ResponseTypeValues
 import net.openid.appauth.TokenResponse
 import javax.inject.Inject
@@ -27,14 +26,14 @@ class OIDCAgent @Inject constructor(private val context: Context) {
         private val TAG = OIDCAgent::class.java.simpleName
     }
 
-    suspend fun authorize(acrValue: String, userName: String?): Uri? {
+    suspend fun authorize(idpUrl: String, acrValue: String, userName: String?, clientId: String, redirectUrl: String): Uri? {
         try {
             // Step 1 : get the service configuration
-            val serviceConfiguration = fetchAuthServiceConfig()
+            val serviceConfiguration = fetchAuthServiceConfig(idpUrl)
             // Step 2 : Create auth state instance
             authState = serviceConfiguration?.let { AuthState(it) }
             // Step 3 : build AuthRequest
-            authRequest = serviceConfiguration?.let { buildAuthRequest(it, acrValue, userName) }
+            authRequest = serviceConfiguration?.let { buildAuthRequest(it, acrValue, userName, clientId, redirectUrl) }
             // Step 4 : get AuthRequest Uri
             val uri = authRequest?.toUri()
             return uri
@@ -44,10 +43,10 @@ class OIDCAgent @Inject constructor(private val context: Context) {
     }
 
     // Fetch an AuthorizationServiceConfiguration from an OpenID Connect issuer URI
-    private suspend fun fetchAuthServiceConfig(): AuthorizationServiceConfiguration? =
+    private suspend fun fetchAuthServiceConfig(idpUrl: String): AuthorizationServiceConfiguration? =
         suspendCoroutine { continuation ->
             AuthorizationServiceConfiguration.fetchFromIssuer(
-                Uri.parse(Configuration.IDP_URL),
+                Uri.parse(idpUrl),
                 RetrieveConfigurationCallback { serviceConfiguration, ex ->
                     if (ex != null) {
                         continuation.resumeWithException(ex)
@@ -59,13 +58,13 @@ class OIDCAgent @Inject constructor(private val context: Context) {
             )
         }
 
-    private fun buildAuthRequest(serviceConfiguration: AuthorizationServiceConfiguration, acrValue: String, userName: String?): AuthorizationRequest? {
+    private fun buildAuthRequest(serviceConfiguration: AuthorizationServiceConfiguration, acrValue: String, userName: String?, clientId: String, redirectUrl: String): AuthorizationRequest? {
 
         val authBuilder = AuthorizationRequest.Builder(
             serviceConfiguration, // the authorization service configuration
-            Configuration.CLIENT_ID, // the client ID, typically pre-registered and static
+            clientId, // the client ID, typically pre-registered and static
             ResponseTypeValues.CODE, // the response_type value: we want a code
-            Uri.parse(Configuration.REDIRECT_URL) // / the redirect URI to which the auth response is sent
+            Uri.parse(redirectUrl) // / the redirect URI to which the auth response is sent
         )
         val additionalParameters: MutableMap<String, String> = HashMap()
         additionalParameters["acr_values"] = acrValue
@@ -74,21 +73,17 @@ class OIDCAgent @Inject constructor(private val context: Context) {
             .setPrompt("login").setAdditionalParameters(additionalParameters).build()
     }
 
-    suspend fun performTokenRequest(code: String?, state: String?): TokenResponse {
+    suspend fun performTokenRequest(code: String?, state: String?, clientSecret: String): TokenResponse {
         try {
             val authService = AuthorizationService(context)
             val authorizationResponse = authRequest?.let { AuthorizationResponse.Builder(it).setAuthorizationCode(code).setState(state).build() }
-            val clientAuthentication: ClientAuthentication?
-            try {
-                clientAuthentication = authState?.clientAuthentication
-            } catch (ex: AuthorizationException) {
-                throw IDCAException(ex)
-            }
+
+            val clientAuthentication = ClientSecretPost(clientSecret)
 
             val tokenResponse = suspendCoroutine { continuation ->
 
                 authorizationResponse?.let {
-                    authService.performTokenRequest(it.createTokenExchangeRequest(), clientAuthentication!!) { tokenResponse: TokenResponse?, authException: AuthorizationException? ->
+                    authService.performTokenRequest(it.createTokenExchangeRequest(), clientAuthentication) { tokenResponse: TokenResponse?, authException: AuthorizationException? ->
                         if (tokenResponse != null) {
                             continuation.resume(tokenResponse)
                         }

@@ -6,9 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.thalesgroup.gemalto.IdCloudAccessSample.agents.IDCAException
 import com.thalesgroup.gemalto.IdCloudAccessSample.agents.SCAAgent
-import com.thalesgroup.gemalto.IdCloudAccessSample.data.DataStoreRepo
-import com.thalesgroup.gemalto.IdCloudAccessSample.utilities.AUTH_TYPE
-import com.thalesgroup.gemalto.IdCloudAccessSample.utilities.USERNAME
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,19 +15,26 @@ sealed class UnenrollmentResponse {
     class Exception(var exception: IDCAException?) : UnenrollmentResponse()
 }
 
+sealed class UpdatePushTokenResponse {
+    class Success(var successData: String?, var token: String) : UpdatePushTokenResponse()
+    class Exception(var exception: IDCAException?) : UpdatePushTokenResponse()
+}
+
 @HiltViewModel
-class SettingViewModel @Inject constructor(private val dataStoreRepoImpl: DataStoreRepo) :
-    ViewModel() {
+class SettingViewModel @Inject constructor() : ViewModel() {
     private val mUnenrollResponse: MutableLiveData<UnenrollmentResponse> =
         MutableLiveData<UnenrollmentResponse>()
     var unenrollResponse: LiveData<UnenrollmentResponse> = mUnenrollResponse
+
+    private val mUpdatePushTokenResponse: MutableLiveData<UpdatePushTokenResponse> =
+        MutableLiveData<UpdatePushTokenResponse>()
+    var updatePushTokenResponse: LiveData<UpdatePushTokenResponse> = mUpdatePushTokenResponse
 
     fun unenroll() {
         viewModelScope.launch {
             runCatching {
                 SCAAgent.unenroll()
             }.onSuccess {
-                clearStorage()
                 mUnenrollResponse.value = UnenrollmentResponse.Success("Unenroll Successful")
             }.onFailure {
                 if (it is IDCAException) {
@@ -40,8 +44,17 @@ class SettingViewModel @Inject constructor(private val dataStoreRepoImpl: DataSt
         }
     }
 
-    private suspend fun clearStorage() {
-        dataStoreRepoImpl.clearPreferences(USERNAME)
-        dataStoreRepoImpl.clearPreferences(AUTH_TYPE)
+    fun updatePushToken(token: String) {
+        viewModelScope.launch {
+            runCatching {
+                SCAAgent.updatePushToken(token)
+            }.onSuccess {
+                mUpdatePushTokenResponse.value = UpdatePushTokenResponse.Success("Update Push Token Successful", token)
+            }.onFailure {
+                if (it is IDCAException) {
+                    mUpdatePushTokenResponse.value = UpdatePushTokenResponse.Exception(it)
+                }
+            }
+        }
     }
 }

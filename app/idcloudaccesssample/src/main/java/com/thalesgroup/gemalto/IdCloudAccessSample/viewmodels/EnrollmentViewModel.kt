@@ -29,9 +29,9 @@ class EnrollmentViewModel @Inject constructor(
         MutableLiveData<EnrollmentResponse>()
     var enrollmentResponse: LiveData<EnrollmentResponse> = mEnrollmentResponse
 
-    fun performTokenRequest(username: String, code: String, state: String) = viewModelScope.launch {
+    fun performTokenRequest(username: String, code: String, state: String, clientSecret: String) = viewModelScope.launch {
         runCatching {
-            oidcAgent.performTokenRequest(code, state)
+            oidcAgent.performTokenRequest(code, state, clientSecret)
         }.onSuccess { response ->
             storeUserName(username)
             mEnrollmentResponse.value =

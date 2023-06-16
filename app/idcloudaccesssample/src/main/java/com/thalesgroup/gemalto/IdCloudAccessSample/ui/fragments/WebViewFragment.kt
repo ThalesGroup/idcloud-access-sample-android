@@ -17,6 +17,7 @@ import com.thalesgroup.gemalto.IdCloudAccessSample.agents.SCAAgent
 import com.thalesgroup.gemalto.IdCloudAccessSample.databinding.FragmentWebViewBinding
 import com.thalesgroup.gemalto.IdCloudAccessSample.utilities.findNavControllerSafely
 import com.thalesgroup.gemalto.IdCloudAccessSample.utilities.getProgressDialog
+import com.thalesgroup.gemalto.IdCloudAccessSample.viewmodels.SharedViewModel
 import com.thalesgroup.gemalto.IdCloudAccessSample.viewmodels.WebViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +28,7 @@ class WebViewFragment : Fragment() {
     private var _binding: FragmentWebViewBinding? = null
     private val binding get() = _binding!!
     private val webViewModel: WebViewModel by viewModels()
-
+    private val sharedViewModel: SharedViewModel by viewModels()
     // Injected the scaAgent in Fragment rather than viewmodel because scaAgent is scoped with Activity to provide activity in SCAAgent constructor
     // and viewmodel shouldn't depend on the activity as both activity and viewmodel have different lifecycle
 
@@ -42,7 +43,7 @@ class WebViewFragment : Fragment() {
         val view = binding.root
 
         try {
-            SCAAgent.init(this)
+            SCAAgent.init(this, sharedViewModel.getMSUrl(), sharedViewModel.getTenantId())
         } catch (ex: IDCAException) {
             val logList = ArrayList<String>()
             logList.add(ex.message!!)
@@ -53,6 +54,10 @@ class WebViewFragment : Fragment() {
 
             // popping the Webview fragment from the stack
             findNavController().popBackStack()
+        }
+
+        if (activity?.getProgressDialog()?.isShowing == false) {
+            activity?.getProgressDialog()?.show()
         }
 
         // observing the token when received through redirect url's
@@ -137,7 +142,7 @@ class WebViewFragment : Fragment() {
         logList.add("Enrollment started")
 
         runCatching {
-            SCAAgent.enroll(registrationCode)
+            SCAAgent.enroll(registrationCode, sharedViewModel.getPushToken())
         }.onSuccess {
             logList.add(it)
             findNavController().previousBackStackEntry?.savedStateHandle?.set(

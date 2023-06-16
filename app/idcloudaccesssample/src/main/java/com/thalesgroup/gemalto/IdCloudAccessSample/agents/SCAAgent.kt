@@ -13,6 +13,11 @@ import com.thales.dis.mobile.idcloud.auth.operation.EnrollmentToken
 import com.thales.dis.mobile.idcloud.auth.operation.EnrollmentTokenFactory
 import com.thales.dis.mobile.idcloud.auth.operation.FetchRequestCallback
 import com.thales.dis.mobile.idcloud.auth.operation.FetchResponse
+import com.thales.dis.mobile.idcloud.auth.operation.NotificationProfile
+import com.thales.dis.mobile.idcloud.auth.operation.ProcessNotificationRequestCallback
+import com.thales.dis.mobile.idcloud.auth.operation.ProcessNotificationResponse
+import com.thales.dis.mobile.idcloud.auth.operation.RefreshPushTokenRequestCallback
+import com.thales.dis.mobile.idcloud.auth.operation.RefreshPushTokenResponse
 import com.thales.dis.mobile.idcloud.auth.operation.UnenrollRequestCallback
 import com.thales.dis.mobile.idcloud.auth.operation.UnenrollResponse
 import com.thales.dis.mobile.idcloud.auth.ui.UiCallbacks
@@ -35,12 +40,10 @@ import kotlin.coroutines.suspendCoroutine
 // **Class cannot be provided without an @Inject constructor or an @Provides-annotated method**
 
 object SCAAgent {
-    private val TAG = SCAAgent::class.java.simpleName
-
     private var idCloudClient: IdCloudClient? = null
     private var fragment: Fragment? = null
 
-    fun init(fragment: Fragment?) {
+    fun init(fragment: Fragment?, msUrl: String, tenantId: String) {
         this.fragment = fragment
         fragment?.activity?.applicationContext?.let {
             configureIdcloud(
@@ -50,7 +53,7 @@ object SCAAgent {
         try {
             idCloudClient = fragment?.activity?.let {
                 IdCloudClientFactory.createIdCloudClient(
-                    it, Configuration.MS_URL, Configuration.TENANT_ID
+                    it, msUrl, tenantId
                 )
             }
         } catch (e: IdCloudClientException) {
@@ -75,13 +78,19 @@ object SCAAgent {
         return idCloudClient?.clientID
     }
 
-    suspend fun enroll(registrationCode: String): String {
+    fun isEnrolled(): Boolean {
+        return getClientId() != null
+    }
+
+    suspend fun enroll(registrationCode: String, pushToken: String?): String {
         try {
             val token: EnrollmentToken = try {
                 EnrollmentTokenFactory.createEnrollmentTokenWithBlob(registrationCode.toByteArray())
             } catch (e: IdCloudClientException) {
                 throw IDCAException(e)
             }
+
+            pushToken?.let { token.setDevicePushToken(pushToken) }
 
             val uiCallbacks = UiCallbacks()
             uiCallbacks.biometricUiCallback = SampleBiometricUiCallback()
@@ -165,5 +174,63 @@ object SCAAgent {
         } catch (e: IdCloudClientException) {
             throw IDCAException(e)
         }
+    }
+
+    suspend fun updatePushToken(token: String): RefreshPushTokenResponse {
+        val notificationProfile = NotificationProfile(token)
+        val response = suspendCoroutine { continuation ->
+            val refreshPushTokenRequestCallback: RefreshPushTokenRequestCallback =
+                object : RefreshPushTokenRequestCallback() {
+                    override fun onSuccess(updatePushTokenresponse: RefreshPushTokenResponse) {
+                        continuation.resume(updatePushTokenresponse)
+                    }
+
+                    override fun onError(e: IdCloudClientException) {
+                        continuation.resumeWithException(e)
+                    }
+                }
+            fragment?.activity?.runOnUiThread {
+                idCloudClient?.createRefreshPushTokenRequest(
+                    notificationProfile,
+                    refreshPushTokenRequestCallback
+                )?.execute()
+            }
+        }
+
+        return response
+    }
+
+    suspend fun processNotification(data: Map<String?, String?>): ProcessNotificationResponse {
+        val uiCallbacks = UiCallbacks()
+        // BIOMETRIC
+        uiCallbacks.biometricUiCallback = SampleBiometricUiCallback()
+        // PIN
+        uiCallbacks.securePinPadUiCallback =
+            SampleSecurePinUiCallback(fragment?.childFragmentManager, "Fetch")
+        //  COMMON
+        uiCallbacks.commonUiCallback = SampleCommonUiCallback(fragment?.childFragmentManager)
+
+        val response = suspendCoroutine { continuation ->
+            val processNotificationRequestCallback: ProcessNotificationRequestCallback =
+                object : ProcessNotificationRequestCallback() {
+                    override fun onSuccess(processNotificationResponse: ProcessNotificationResponse) {
+                        continuation.resume(processNotificationResponse)
+                    }
+
+                    override fun onError(e: IdCloudClientException) {
+                        continuation.resumeWithException(e)
+                    }
+                }
+
+            fragment?.activity?.runOnUiThread {
+                idCloudClient?.createProcessNotificationRequest(
+                    data,
+                    uiCallbacks,
+                    processNotificationRequestCallback
+                )?.execute()
+            }
+        }
+
+        return response
     }
 }

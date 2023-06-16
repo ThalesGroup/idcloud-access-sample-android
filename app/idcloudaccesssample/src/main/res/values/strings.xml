@@ -18,9 +18,32 @@
     <string name="pref_title_protector_fido_version">Protector FIDO - %1$s</string>
     <string name="pref_key_idcloud_risk_version">key_idcloud_risk_version</string>
     <string name="pref_title_idcloud_risk_version">IdCloud Risk - %1$s</string>
+    <string name="pref_title_configuration_idp_title">Configuration - IDP</string>
+    <string name="pref_title_configuration_fido_title">Configuration - Protector FIDO</string>
+    <string name="pref_title_configuration_risk_title">Configuration - IdCloud Risk</string>
+    <string name="pref_title_idp_url">IDP URL</string>
+    <string name="pref_key_idp_url">key_idp_url</string>
+    <string name="pref_title_redirect_url">Redirect URL</string>
+    <string name="pref_key_idp_redirect_url">key_idp_redirect_url</string>
+    <string name="pref_title_client_id">Client ID</string>
+    <string name="pref_key_client_id">key_client_id</string>
+    <string name="pref_title_client_secret">Client Secret</string>
+    <string name="pref_key_client_secret">key_client_secret</string>
+    <string name="pref_title_ms_url">MS URL</string>
+    <string name="pref_key_ms_url">key_ms_url</string>
+    <string name="pref_title_tenant_id">Tenant ID</string>
+    <string name="pref_key_tenant_id">key_tenant_id</string>
+    <string name="pref_title_nd_url">ND URL</string>
+    <string name="pref_key_nd_url">key_nd_url</string>
+    <string name="pref_title_risk_client_id">Risk Client ID</string>
+    <string name="pref_key_risk_client_id">key_risk_client_id</string>
+    <string name="pref_title_risk_url">Risk URL</string>
+    <string name="pref_key_risk_url">key_risk_url</string>
     <string name="pref_category_general_title">General</string>
     <string name="pref_key_show_logs">key_show_logs</string>
     <string name="pref_title_show_logs">Show Logs</string>
+    <string name="pref_key_device_push_token">key_push_token</string>
+    <string name="pref_title_device_push_token">Refresh Push Token</string>
     <string name="pref_key_reset">key_reset</string>
     <string name="pref_title_reset">Reset</string>
 
@@ -35,5 +58,10 @@
         <item>@string/strong</item>
     </string-array>
     <string name="authentication_success">Sign In Success</string>
+
+    <!-- Landing Page -->
+    <string name="qrcode_label">Do you have a QR code to register your device?</string>
+    <string name="scan_button_title">Yes!\nScan it</string>
+    <string name="no_button_title">No</string>
 
 </resources>

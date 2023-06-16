@@ -3,7 +3,23 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_icam"
-    app:startDestination="@id/homeScreenFragment">
+    app:startDestination="@id/landingPageFragment">
+    <fragment
+        android:id="@+id/landingPageFragment"
+        android:name="com.thalesgroup.gemalto.IdCloudAccessSample.ui.fragments.LandingPageFragment"
+        android:label="fragment_landing_page"
+        tools:layout="@layout/fragment_landing_page" >
+        <action
+            android:id="@+id/action_landingPageFragment_to_homeScreenFragment"
+            app:destination="@id/homeScreenFragment" />
+        <action
+            android:id="@+id/action_landingPageFragment_to_qrCodeFragment"
+            app:destination="@id/qrCodeFragment" />
+        <action
+            android:id="@+id/action_landingPageFragment_to_settingsFragment"
+            app:destination="@id/settingsFragment" />
+    </fragment>
+
     <fragment
         android:id="@+id/homeScreenFragment"
         android:name="com.thalesgroup.gemalto.IdCloudAccessSample.ui.fragments.HomeScreenFragment"
@@ -20,10 +36,21 @@
         android:id="@+id/settingsFragment"
         android:name="com.thalesgroup.gemalto.IdCloudAccessSample.ui.fragments.SettingsFragment"
         android:label="fragment_settings"
-        tools:layout="@layout/fragment_settings" />
+        tools:layout="@layout/fragment_settings" >
+        <action
+            android:id="@+id/action_settingsFragment_to_landingPageFragment"
+            app:destination="@id/landingPageFragment"
+            app:popUpTo="@+id/landingPageFragment"
+            app:popUpToInclusive="true"/>
+    </fragment>
     <fragment
         android:id="@+id/webViewFragment"
         android:name="com.thalesgroup.gemalto.IdCloudAccessSample.ui.fragments.WebViewFragment"
         android:label="fragment_web_view"
         tools:layout="@layout/fragment_web_view" />
+    <dialog
+        android:id="@+id/qrCodeFragment"
+        android:name="com.thalesgroup.gemalto.IdCloudAccessSample.ui.dialog.QrCodeFragment"
+        android:label="QrCodeFragment" />
+
 </navigation>

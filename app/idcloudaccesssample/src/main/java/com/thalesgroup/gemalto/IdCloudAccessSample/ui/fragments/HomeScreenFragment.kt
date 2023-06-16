@@ -1,42 +1,59 @@
 package com.thalesgroup.gemalto.IdCloudAccessSample.ui.fragments
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.appcompat.app.AlertDialog
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
+import androidx.lifecycle.lifecycleScope
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.findNavController
 import androidx.preference.PreferenceManager
+import com.thalesgroup.gemalto.IdCloudAccessSample.IcamPushNotificationService
 import com.thalesgroup.gemalto.IdCloudAccessSample.R
+import com.thalesgroup.gemalto.IdCloudAccessSample.agents.IDCAException
+import com.thalesgroup.gemalto.IdCloudAccessSample.agents.SCAAgent
 import com.thalesgroup.gemalto.IdCloudAccessSample.databinding.FragmentHomeScreenBinding
 import com.thalesgroup.gemalto.IdCloudAccessSample.ui.dialog.IDCAAlertDialog
+import com.thalesgroup.gemalto.IdCloudAccessSample.utilities.getProgressDialog
 import com.thalesgroup.gemalto.IdCloudAccessSample.utilities.toast
 import com.thalesgroup.gemalto.IdCloudAccessSample.viewmodels.HomeScreenViewModel
+import com.thalesgroup.gemalto.IdCloudAccessSample.viewmodels.SharedViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class HomeScreenFragment : Fragment() {
-
+class HomeScreenFragment : Fragment(), IcamPushNotificationService.PushNotificationHandler {
+    private val TAG = HomeScreenFragment::class.java.simpleName
     private var _binding: FragmentHomeScreenBinding? = null
     private val binding get() = _binding!!
     private val homeScreenViewModel: HomeScreenViewModel by viewModels()
+    private val sharedViewModel: SharedViewModel by viewModels()
 
     var requestCode: Int? = null
     var homeHostFragment: NavHostFragment? = null
-    var progressDialog: AlertDialog? = null
+    private var receiver: BroadcastReceiver? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
+        sharedViewModel.init()
+        SCAAgent.init(this, sharedViewModel.getMSUrl(), sharedViewModel.getTenantId())
+
         _binding = FragmentHomeScreenBinding.inflate(inflater, container, false)
         val view = binding.root
 
@@ -102,6 +119,10 @@ class HomeScreenFragment : Fragment() {
                         if (code != null && state != null) currentFragment.performTokenRequest(
                             code, state
                         )
+                    }
+                } else {
+                    if (code != null && state != null) {
+                        toast { getString(R.string.authentication_success) }
                     }
                 }
 
@@ -262,16 +283,20 @@ class HomeScreenFragment : Fragment() {
             )
         }
 
-        binding.imgSettings.setOnClickListener {
+        binding.topView.imgSettings.setOnClickListener {
             findNavController().navigate(
                 R.id.action_homeScreenFragment_to_settingsFragment
             )
         }
 
-        // if username is not empty then we directly show the user enrollment fragment
-        if (homeScreenViewModel.getUserName().isNullOrEmpty()) {
+        val registrationStatus = arguments?.getString("registration")
+        if (registrationStatus.equals("completed")) {
+            // Landing Page Fragment -> Authentication Fragment
+            navigateToAuthenticationFragment()
+        } else if (homeScreenViewModel.getUserName().isNullOrEmpty()) {
             navigateToEnrollmentFragment()
         } else {
+            // Home Page Fragment -> Authentication Fragment
             navigateToAuthenticationFragment()
         }
 
@@ -280,6 +305,33 @@ class HomeScreenFragment : Fragment() {
             homeScreenViewModel.clearLogs()
         }
         return view
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        receiver = PushNotificationBroadcastReceiver(this)
+        val filter = IntentFilter(IcamPushNotificationService.PROCESS_PUSH_NOTIFICATION_ACTION)
+        LocalBroadcastManager.getInstance(requireContext()).registerReceiver(receiver as PushNotificationBroadcastReceiver, filter)
+
+        val intent = activity?.intent
+
+        val bundle = intent?.extras
+
+        if (SCAAgent.isEnrolled() && bundle == null) {
+            fetch()
+        } else {
+            val notificationString = intent?.getStringExtra("ms")
+            val notification: MutableMap<String?, String?> = HashMap()
+            notification["ms"] = notificationString
+            handlePushNotification(notification)
+            activity?.intent = Intent()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        receiver?.let { LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(it) }
     }
 
     override fun onDestroyView() {
@@ -313,5 +365,57 @@ class HomeScreenFragment : Fragment() {
 
     fun showAlertDialog(message: String, title: String = "Error") {
         activity?.let { IDCAAlertDialog.getAlertDialog(it, message, title) }
+    }
+
+    private fun fetch() {
+        lifecycleScope.launch(Dispatchers.Main) {
+            runCatching {
+                activity?.getProgressDialog()?.show()
+                SCAAgent.fetch()
+            }.onSuccess {
+                activity?.getProgressDialog()?.cancel()
+                toast {
+                    getString(R.string.authentication_success)
+                }
+            }.onFailure {
+                activity?.getProgressDialog()?.cancel()
+                if (it is IDCAException) {
+                    if (!(it.getIDCAErrorCode()==IDCAException.ERROR_CODE_IDCA.CANCELLED || it.getIDCAErrorCode()==IDCAException.ERROR_CODE_IDCA.NO_PENDING_EVENTS)) {
+                        showAlertDialog(it.getIDCAErrorDescription().toString())
+                    }
+                }
+            }
+        }
+    }
+
+    internal class PushNotificationBroadcastReceiver(handler: IcamPushNotificationService.PushNotificationHandler) :
+        BroadcastReceiver() {
+        private val handler: IcamPushNotificationService.PushNotificationHandler
+
+        init {
+            this.handler = handler
+        }
+
+        override fun onReceive(context: Context, intent: Intent) {
+            Log.e("ICAM", "onReceive: $intent")
+            val notification = intent.getSerializableExtra(IcamPushNotificationService.MAP_EXTRA_NAME) as Map<String?, String?>?
+            handler.handlePushNotification(notification)
+        }
+    }
+
+    override fun handlePushNotification(notification: Map<String?, String?>?) {
+        lifecycleScope.launch(Dispatchers.Main) {
+            runCatching {
+                if (notification != null) {
+                    SCAAgent.processNotification(notification)
+                }
+            }.onSuccess {
+                toast { getString(R.string.authentication_success) }
+            }.onFailure {
+                if (it is IDCAException) {
+                    showAlertDialog(it.getIDCAErrorDescription().toString())
+                }
+            }
+        }
     }
 }

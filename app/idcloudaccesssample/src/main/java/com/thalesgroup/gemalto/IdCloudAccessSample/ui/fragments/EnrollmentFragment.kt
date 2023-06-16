@@ -143,6 +143,7 @@ class EnrollmentFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
+        sharedViewModel.init()
         _binding = FragmentEnrollmentBinding.inflate(inflater, container, false)
         val view = binding.root
         binding.run {
@@ -199,7 +200,7 @@ class EnrollmentFragment : Fragment() {
     }
 
     fun performTokenRequest(code: String, state: String) {
-        enrollmentViewModel.performTokenRequest(username, code, state)
+        enrollmentViewModel.performTokenRequest(username, code, state, sharedViewModel.getClientSecret())
     }
 
     override fun onResume() {

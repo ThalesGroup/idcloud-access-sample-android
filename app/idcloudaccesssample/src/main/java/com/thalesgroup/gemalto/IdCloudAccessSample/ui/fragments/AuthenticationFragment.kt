@@ -102,13 +102,19 @@ class AuthenticationFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
-        SCAAgent.init(this)
+        sharedViewModel.init()
+        SCAAgent.init(this, sharedViewModel.getMSUrl(), sharedViewModel.getTenantId())
         _binding = FragmentAuthenticationBinding.inflate(inflater, container, false)
         val view = binding.root
 
         // User Name
         val username = binding.userName
-        username.text = sharedViewModel.getUserName()
+        val editUserName = binding.editUserName
+
+        val userNameInStorage = sharedViewModel.getUserName()
+        editUserName.visibility = if (userNameInStorage == null) View.VISIBLE else View.GONE
+        username.visibility = if (userNameInStorage == null) View.GONE else View.VISIBLE
+        username.text = userNameInStorage
 
         val authenticationType = resources.getStringArray(R.array.authentication_type_options)
         val spinner = view.findViewById<Spinner>(R.id.select_authentication_type)
@@ -122,6 +128,8 @@ class AuthenticationFragment : Fragment() {
 
         binding.run {
             authSignIn.setOnClickListener {
+                val userName: String = userNameInStorage ?: editUserName.text.toString()
+                authenticationViewModel.storeUserName(userName)
                 authenticationViewModel.storeAuthenticationType(spinner.selectedItemPosition)
                 val clientId = SCAAgent.getClientId()
 
@@ -130,7 +138,7 @@ class AuthenticationFragment : Fragment() {
                     homeScreenFragment?.setLogs("acr_values: $acrValueForSCA")
 
                     sharedViewModel.authenticateUser(
-                        acrValueForSCA, username.text.toString()
+                        acrValueForSCA, userName
                     )
                 } else {
                     lifecycleScope.launch(Dispatchers.IO) {
@@ -152,7 +160,7 @@ class AuthenticationFragment : Fragment() {
 
                                 if (acrValue != null) {
                                     sharedViewModel.authenticateUser(
-                                        acrValue, username.text.toString()
+                                        acrValue, userName
                                     )
                                 }
                             }

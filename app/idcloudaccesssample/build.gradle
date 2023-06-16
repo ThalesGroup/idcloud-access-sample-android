@@ -28,7 +28,7 @@ android {
         minSdk 23
         targetSdk 33
         versionCode versionCodeDate()
-        versionName "1.0.0"
+        versionName "1.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders = [appAuthRedirectScheme: '']
     }
@@ -101,6 +101,9 @@ dependencies {
 
     //GSON
     implementation 'com.google.code.gson:gson:2.9.1'
+
+    //QRCode Scanner
+    implementation 'me.dm7.barcodescanner:zxing:1.9.13'
 }
 
 kapt {
